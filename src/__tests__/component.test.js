@@ -1,10 +1,7 @@
 import React from 'react'
-import enzyme, { shallow } from 'enzyme'
-import Adapter from '@wojtekmaj/enzyme-adapter-react-17'
+import { render, screen } from '@testing-library/react'
 import withSizeMock from '../with-size'
 import SizeMe from '../component'
-
-enzyme.configure({ adapter: new Adapter() })
 
 jest.mock('../with-size.js')
 
@@ -26,13 +23,13 @@ describe('<SizeMe />', () => {
   })
 
   it('should pass down props as configuration to withSize', () => {
-    shallow(<SizeMe render={noop} {...sizeMeConfig} />)
+    render(<SizeMe render={noop} {...sizeMeConfig} />)
     expect(withSizeMock).lastCalledWith(sizeMeConfig)
   })
 
   it('should monitor and provide the size to the render func', () => {
     let actualSize
-    const wrapper = shallow(
+    render(
       <SizeMe
         render={({ size }) => {
           actualSize = size
@@ -40,24 +37,26 @@ describe('<SizeMe />', () => {
         {...sizeMeConfig}
       />,
     )
-    wrapper.prop('onSize')({ width: 100, height: 50 })
+    // Simulate the onSize prop call
+    const {onSize} = screen.getByTestId('sizeme-component').props
+    onSize({ width: 100, height: 50 })
     expect(actualSize).toEqual({ width: 100, height: 50 })
   })
 
   it('should update the sizeme component when a new configuration is provided', () => {
-    const wrapper = shallow(<SizeMe {...sizeMeConfig}>{noop}</SizeMe>)
+    const { rerender } = render(<SizeMe {...sizeMeConfig}>{noop}</SizeMe>)
     const newSizeMeConfig = {
       ...sizeMeConfig,
       monitorHeight: false,
     }
-    wrapper.setProps({ ...sizeMeConfig, ...newSizeMeConfig })
+    rerender(<SizeMe {...newSizeMeConfig}>{noop}</SizeMe>)
     expect(withSizeMock).toHaveBeenCalledTimes(2)
     expect(withSizeMock).lastCalledWith(newSizeMeConfig)
   })
 
   it('should not update the sizeme component when a new configuration is provided', () => {
-    const wrapper = shallow(<SizeMe render={noop} {...sizeMeConfig} />)
-    wrapper.setProps({ render: () => 'NEW!', ...sizeMeConfig })
+    const { rerender } = render(<SizeMe render={noop} {...sizeMeConfig} />)
+    rerender(<SizeMe render={() => 'NEW!'} {...sizeMeConfig} />)
     expect(withSizeMock).toHaveBeenCalledTimes(1)
   })
 })

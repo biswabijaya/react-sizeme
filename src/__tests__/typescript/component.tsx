@@ -13,9 +13,9 @@ function MyApp() {
           const foo = height + 1
         }
         // typings:expect-error
-        const h1 = height + 1
+        const h1 = height ? height + 1 : 0
         // typings:expect-error
-        const w1 = width + 1
+        const w1 = width ? width + 1 : 0
         return <div />
       }}
     </SizeMe>

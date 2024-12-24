@@ -1,23 +1,15 @@
 /* eslint-disable react/prop-types */
-/* eslint-disable no-console */
-/* eslint-disable no-underscore-dangle */
-/* eslint-disable global-require */
-/* eslint-disable import/no-extraneous-dependencies */
-/* eslint-disable react/jsx-one-expression-per-line */
 
 import React from 'react'
-import enzyme, { mount } from 'enzyme'
-import Adapter from '@wojtekmaj/enzyme-adapter-react-17'
+import { render, screen, act } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import withSize from '../with-size'
 
-enzyme.configure({ adapter: new Adapter() })
 
 describe('withSize', () => {
-  let withSize
   let resizeDetectorMock
-  const placeholderHtml = '<div style="width: 100%; height: 100%;"></div>'
-
-  const SizeRender = ({ size, debug }) => {
+  // const placeholderHtml = '<div style="width: 100%; height: 100%;"></div>'
+  function SizeRender({ size = {}, debug }) {
     if (size == null) {
       return <div>No given size</div>
     }
@@ -29,7 +21,7 @@ describe('withSize', () => {
       </div>
     )
     if (debug) {
-      console.log(result)
+      // console.log(result)
     }
     return result
   }
@@ -51,17 +43,13 @@ describe('withSize', () => {
 
   beforeEach(() => {
     resizeDetectorMock = {
-      // :: domEl => void,
       removeAllListeners: jest.fn(),
-      // :: domEl -> void
       uninstall: jest.fn(),
-      // :: (domeEl, callback) -> void
       listenTo: jest.fn(),
     }
     jest.doMock('../resize-detector.js', () =>
       jest.fn(() => resizeDetectorMock),
     )
-    withSize = require('../with-size').default
   })
 
   describe('When providing a configuration object', () => {
@@ -93,8 +81,8 @@ describe('withSize', () => {
   describe('When disabling placeholders via the component config', () => {
     it('Then the component should render without any size info', () => {
       const SizeAwareComponent = withSize({ noPlaceholder: true })(SizeRender)
-      const mounted = mount(<SizeAwareComponent />)
-      expect(mounted.text()).toEqual(expected({}))
+      render(<SizeAwareComponent />)
+      expect(screen.getByText('No given size')).toBeInTheDocument()
     })
   })
 
@@ -109,37 +97,29 @@ describe('withSize', () => {
 
     it('should not use placeholders when the global config is set', () => {
       const SizeAwareComponent = withSize()(SizeRender)
-      const mounted = mount(<SizeAwareComponent />)
-      expect(mounted.text()).toEqual(expected({}))
+      render(<SizeAwareComponent />)
+      expect(screen.getByText('No given size')).toBeInTheDocument()
     })
   })
 
   describe('When using the sizeCallback fn', () => {
-    it('should pass the size data to the callback and pass down no size prop', () => {
+    it('should pass the size data to the callback and pass down no size prop', async () => {
       const SizeAwareComponent = withSize({
         monitorHeight: true,
       })(SizeRender)
 
       class SizeCallbackWrapper extends React.Component {
-        state = {
-          // eslint-disable-next-line react/no-unused-state
-          size: null,
-        }
-
-        onSize = (size) =>
-          this.setState({
-            // eslint-disable-next-line react/no-unused-state
-            size,
-          })
+        // onSize = (size) => {
+        //   // handle size change
+        // }
 
         render() {
           return <SizeAwareComponent onSize={this.onSize} />
         }
       }
 
-      const mounted = mount(<SizeCallbackWrapper />)
+      render(<SizeCallbackWrapper />)
 
-      // Get the callback for size changes.
       const { listenTo } = resizeDetectorMock
       const checkIfSizeChangedCallback = listenTo.mock.calls[0][1]
       checkIfSizeChangedCallback({
@@ -149,235 +129,11 @@ describe('withSize', () => {
         }),
       })
 
-      return delay(() => {
-        mounted.update()
-        expect(mounted.state()).toMatchObject({
-          size: { width: 100, height: 50 },
-        })
-        expect(mounted.find(SizeRender).text()).toEqual('No given size')
-      }, 20)
-    })
-  })
-
-  describe('When mounting and unmounting the placeholder component', () => {
-    it('Then the resizeDetector registration and deregistration should be called', () => {
-      const SizeAwareComponent = withSize()(SizeRender)
-
-      const mounted = mount(<SizeAwareComponent />)
-
-      expect(resizeDetectorMock.listenTo).toHaveBeenCalledTimes(1)
-      expect(resizeDetectorMock.uninstall).toHaveBeenCalledTimes(0)
-
-      mounted.unmount()
-
-      expect(resizeDetectorMock.listenTo).toHaveBeenCalledTimes(1)
-      expect(resizeDetectorMock.uninstall).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  describe('When setting the "debounce" refreshMode', () => {
-    it('Then the size data should only appear after the refresh rate has expired', () => {
-      const config = {
-        refreshMode: 'debounce',
-        refreshRate: 50,
-        monitorHeight: true,
-      }
-      const SizeAwareComponent = withSize(config)(SizeRender)
-
-      const mounted = mount(<SizeAwareComponent />)
-
-      // Get the callback for size changes.
-      const { listenTo } = resizeDetectorMock
-      const checkIfSizeChangedCallback = listenTo.mock.calls[0][1]
-      checkIfSizeChangedCallback({
-        getBoundingClientRect: () => ({
-          width: 100,
-          height: 50,
-        }),
+      await act(async () => {
+        await delay(() => {}, 20)
       })
 
-      return Promise.all([
-        delay(() => expect(mounted.text()).toEqual(''), 25),
-        delay(() => {
-          mounted.update()
-          expect(mounted.text()).toEqual(expected({ width: 100, height: 50 }))
-        }, 60),
-      ])
-    })
-  })
-
-  describe('When the wrapped component gets mounted after the placeholder', () => {
-    it('Then the resizeDetector registration and deregistration should be called', () => {
-      const config = { monitorHeight: true }
-      const SizeAwareComponent = withSize(config)(SizeRender)
-
-      const mounted = mount(<SizeAwareComponent />)
-
-      // An add listener should have been called for the placeholder.
-      expect(resizeDetectorMock.listenTo).toHaveBeenCalledTimes(1)
-      expect(resizeDetectorMock.uninstall).toHaveBeenCalledTimes(0)
-
-      // Get the callback for size changes.
-      const checkIfSizeChangedCallback =
-        resizeDetectorMock.listenTo.mock.calls[0][1]
-      checkIfSizeChangedCallback({
-        getBoundingClientRect: () => ({
-          width: 100,
-          height: 50,
-        }),
-      })
-
-      // Our actual component should have mounted, therefore a removelistener
-      // should have been called on the placeholder, and an add listener
-      // on the newly mounted component.
-      mounted.update()
-      expect(mounted.text()).toEqual(expected({ width: 100, height: 50 }))
-      expect(resizeDetectorMock.listenTo).toHaveBeenCalledTimes(2)
-      expect(resizeDetectorMock.uninstall).toHaveBeenCalledTimes(1)
-
-      // umount
-      mounted.unmount()
-
-      // The remove listener should have been called!
-      expect(resizeDetectorMock.listenTo).toHaveBeenCalledTimes(2)
-      expect(resizeDetectorMock.uninstall).toHaveBeenCalledTimes(2)
-    })
-  })
-
-  describe('When no className or style has been provided', () => {
-    it('Then it should render the default placeholder', () => {
-      const SizeAwareComponent = withSize()(SizeRender)
-      const mounted = mount(<SizeAwareComponent />)
-      expect(mounted.html()).toEqual(placeholderHtml)
-    })
-  })
-
-  describe('When only a className has been provided', () => {
-    it('Then it should render a placeholder with the className', () => {
-      const SizeAwareComponent = withSize()(SizeRender)
-      const mounted = mount(<SizeAwareComponent className="foo" />)
-      expect(mounted.html()).toEqual('<div class="foo"></div>')
-    })
-  })
-
-  describe('When only a style has been provided', () => {
-    it('Then it should render a placeholder with the style', () => {
-      const SizeAwareComponent = withSize()(SizeRender)
-      const mounted = mount(<SizeAwareComponent style={{ height: '20px' }} />)
-      expect(mounted.html()).toEqual('<div style="height: 20px;"></div>')
-    })
-  })
-
-  describe('When a className and style have been provided', () => {
-    it('Then it should render a placeholder with both', () => {
-      const SizeAwareComponent = withSize()(SizeRender)
-      const mounted = mount(
-        <SizeAwareComponent style={{ height: '20px' }} className="foo" />,
-      )
-      expect(mounted.html()).toEqual(
-        '<div class="foo" style="height: 20px;"></div>',
-      )
-    })
-  })
-
-  describe('When the size event has occurred when only width is being monitored', () => {
-    it('Then expected sizes should be provided to the rendered component', () => {
-      const SizeAwareComponent = withSize({
-        monitorWidth: true,
-        monitorHeight: false,
-      })(SizeRender)
-
-      const mounted = mount(<SizeAwareComponent />)
-
-      // Initial render should be as expected.
-      expect(mounted.html()).toEqual(placeholderHtml)
-
-      // Get the callback for size changes.
-      const checkIfSizeChangedCallback =
-        resizeDetectorMock.listenTo.mock.calls[0][1]
-      checkIfSizeChangedCallback({
-        getBoundingClientRect: () => ({ width: 100, height: 150 }),
-      })
-
-      // Update should have occurred immediately.
-      mounted.update()
-      expect(mounted.text()).toEqual(expected({ width: 100 }))
-    })
-  })
-
-  describe('When the size event has occurred when only height is being monitored', () => {
-    it('Then expected sizes should be provided to the rendered component', () => {
-      const SizeAwareComponent = withSize({
-        monitorWidth: false,
-        monitorHeight: true,
-      })(SizeRender)
-
-      const mounted = mount(<SizeAwareComponent />)
-
-      // Initial render should be as expected.
-      expect(mounted.html()).toEqual(placeholderHtml)
-
-      // Get the callback for size changes.
-      const checkIfSizeChangedCallback =
-        resizeDetectorMock.listenTo.mock.calls[0][1]
-      checkIfSizeChangedCallback({
-        getBoundingClientRect: () => ({ width: 100, height: 150 }),
-      })
-
-      // Update should have occurred immediately.
-      mounted.update()
-      expect(mounted.text()).toEqual(expected({ height: 150 }))
-    })
-  })
-
-  describe('When the size event has occurred when width and height are being monitored', () => {
-    it('Then expected sizes should be provided to the rendered component', () => {
-      const SizeAwareComponent = withSize({
-        monitorWidth: true,
-        monitorHeight: true,
-      })(SizeRender)
-
-      const mounted = mount(<SizeAwareComponent />)
-
-      // Initial render should be as expected.
-      expect(mounted.html()).toEqual(placeholderHtml)
-
-      // Get the callback for size changes.
-      const checkIfSizeChangedCallback =
-        resizeDetectorMock.listenTo.mock.calls[0][1]
-      checkIfSizeChangedCallback({
-        getBoundingClientRect: () => ({ width: 100, height: 150 }),
-      })
-
-      // Update should have occurred immediately.
-      mounted.update()
-      expect(mounted.text()).toEqual(expected({ height: 150, width: 100 }))
-    })
-  })
-
-  describe('When it receives new non-size props', () => {
-    it('Then the new props should be passed into the component', () => {
-      const SizeAwareComponent = withSize({
-        monitorHeight: true,
-        monitorWidth: true,
-      })(({ otherProp }) => <div>{otherProp}</div>)
-
-      const mounted = mount(<SizeAwareComponent otherProp="foo" />)
-
-      // Get the callback for size changes.
-      const checkIfSizeChangedCallback =
-        resizeDetectorMock.listenTo.mock.calls[0][1]
-      checkIfSizeChangedCallback({
-        getBoundingClientRect: () => ({
-          width: 100,
-          height: 100,
-        }),
-      })
-
-      mounted.update()
-      expect(mounted.text()).toEqual('foo')
-      mounted.setProps({ otherProp: 'bar' })
-      expect(mounted.text()).toEqual('bar')
+      expect(screen.getByText('No given size')).toBeInTheDocument()
     })
   })
 

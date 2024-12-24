@@ -1,9 +1,7 @@
-const { uglify } = require('rollup-plugin-uglify')
-const packageJson = require('./package.json')
+import terser from '@rollup/plugin-terser'
+import baseConfig from './rollup.config.js'
 
-const baseConfig = require('./rollup.config.js')
+baseConfig.plugins.push(terser())
+baseConfig.output.file = `dist/react-sizeme.min.js`
 
-baseConfig.plugins.push(uglify())
-baseConfig.output.file = `dist/${packageJson.name}.min.js`
-
-module.exports = baseConfig
+export default baseConfig
