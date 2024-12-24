@@ -1,10 +1,6 @@
-const { execSync } = require('child_process')
-const appRootDir = require('app-root-dir')
+import { execSync } from 'child_process'
+import { get } from 'app-root-dir'
 
-function exec(command) {
-  execSync(command, { stdio: 'inherit', cwd: appRootDir.get() })
-}
-
-module.exports = {
-  exec,
+export function exec(command) {
+  execSync(command, { stdio: 'inherit', cwd: get() })
 }

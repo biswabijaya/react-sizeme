@@ -1,6 +1,5 @@
-/* eslint-disable */
 
-import { Component, ComponentType, ReactNode, ReactElement } from 'react'
+import { Component, ComponentType, ReactElement } from 'react'
 
 type Omit<T, K> = Pick<T, Exclude<keyof T, K>>
 

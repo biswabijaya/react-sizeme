@@ -3,6 +3,7 @@
 /* eslint-disable react/require-default-props */
 /* eslint-disable react/no-find-dom-node */
 
+
 import React, { Children, Component } from 'react'
 import ReactDOM from 'react-dom'
 import invariant from 'invariant'
@@ -259,26 +260,26 @@ function withSize(config = defaultConfig) {
       }
 
       checkIfSizeChanged = refreshDelayStrategy(refreshRate, (el) => {
-        const { width, height } = el.getBoundingClientRect()
+        const { width, height } = el.getBoundingClientRect();
 
         const next = {
           width: monitorWidth ? width : null,
           height: monitorHeight ? height : null,
-        }
+        };
 
         if (this.hasSizeChanged(this.strategisedGetState(), next)) {
-          this.strategisedSetState(next)
+          this.strategisedSetState(next);
         }
-      })
+      });
 
       render() {
         const disablePlaceholder =
           withSize.enableSSRBehaviour ||
           withSize.noPlaceholders ||
           noPlaceholder ||
-          this.strategy === 'callback'
+          this.strategy === 'callback';
 
-        const size = { ...this.state }
+        const size = { ...this.state };
 
         return (
           <SizeMeRenderWrapper
@@ -287,7 +288,7 @@ function withSize(config = defaultConfig) {
             disablePlaceholder={disablePlaceholder}
             {...this.props}
           />
-        )
+        );
       }
     }
 
